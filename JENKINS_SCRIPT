@@ -1,0 +1,67 @@
+# FILD LINK ::::  https://blog.mphomphego.co.za/blog/2018/05/25/How-to-securely-backup-your-Jenkins-Configuration.html
+
+# Create backup script by copying the code below and saving it on $JENKINS_HOME.
+vim $JENKINS_HOME/jenkins-git-config.sh
+chmod a+x $JENKINS_HOME/jenkins-git-config.sh
+
+# script
+
+#!/bin/sh
+
+# Script below will commit the complete Jenkins config (including plugins and deletions) while ignoring various unwanted Jenkins droppings.
+# Assumes that the git repo is already configured with an upstream and an ssh key for authentication.
+
+# Stole bits from:
+# https://github.com/zeroem/jenkins-configuration-versioning/blob/master/jenkins_scm.sh
+# https://gist.github.com/550369
+# http://jenkins-ci.org/content/keeping-your-configuration-and-data-subversion
+# http://stackoverflow.com/questions/27609679/deal-with-jenkins-password-encryption-when-stored-in-a-scm
+# http://serverfault.com/questions/291218/what-are-the-jenkins-hudson-key-files-for
+
+set -e              # Abort on errors
+
+if [ -z "$JENKINS_HOME" ]; then
+    echo "error: JENKINS_HOME is not set"
+    exit 1
+fi
+
+cd $JENKINS_HOME
+
+# make sure we're in a git working directory
+if [ ! -d .git ]; then
+    echo "error: there is no .git directory here. Make sure you're in the right place."
+    exit 1
+fi
+
+# Try and pull changes. Any changes here Would indicate that someone manually
+# edited the config outside of jenkins and pushed. Hopefully this is not a
+# problem :)
+git pull
+
+# Only add job credentials if they exist
+find  -regex '\./jobs/.*/.*\.credentials' -print0 | xargs -r -0 git add
+
+# only add user configurations if they exist
+if [ -d users ]; then
+    user_configs=`ls users/*/config.xml`
+    if [ -n "$user_configs" ]; then
+    git add users/*/config.xml
+    fi
+fi
+
+# Add general configurations, job configurations, and user content
+git add -- *.xml jobs/*/*.xml userContent/* \
+    plugins/*.jpi* plugins/*.hpi*
+
+# Add various credentials
+git add -- *.key* secrets
+
+
+# mark as deleted anything that's been, well, deleted
+git ls-files --deleted -z | xargs -r -0 git rm
+
+# Commit if there is anything to commit
+git diff --exit-code && git diff --cached --exit-code ||\
+    git commit -m "Automated CBF Jenkins commit"
+# And push
+git push
