@@ -65,3 +65,15 @@ git diff --exit-code && git diff --cached --exit-code ||\
     git commit -m "Automated CBF Jenkins commit"
 # And push
 git push
+
+
+
+
+# create a JOB in jenkins
+# build periodically - daily
+# Execute Shell -  
+    set -e
+    bash $JENKINS_HOME/jenkins-git-config.sh
+    
+
+
